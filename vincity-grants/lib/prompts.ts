@@ -1,6 +1,6 @@
 import { ClientProfile, ConversationMessage } from './types';
 
-function formatProfile(p: ClientProfile): string {
+export function formatProfile(p: ClientProfile): string {
   const lines = [
     `Artist/Client: ${p.artistName}`,
     p.organizationName ? `Organization: ${p.organizationName}` : null,
@@ -17,7 +17,7 @@ function formatProfile(p: ClientProfile): string {
   return lines.filter(Boolean).join('\n');
 }
 
-function formatConversation(history: ConversationMessage[]): string {
+export function formatConversation(history: ConversationMessage[]): string {
   if (history.length === 0) return '(No conversation yet)';
   return history
     .map((m) => `${m.role === 'assistant' ? 'INTERVIEWER' : 'CLIENT'}: ${m.content}`)
@@ -25,11 +25,11 @@ function formatConversation(history: ConversationMessage[]): string {
 }
 
 // ── Interview question generation ─────────────────────────────────────────────
+// Conversation history is passed via the messages array, not the system prompt.
 
 export function interviewSystemPrompt(
   grantText: string,
-  profile: ClientProfile,
-  history: ConversationMessage[]
+  profile: ClientProfile
 ): string {
   return `You are a specialized grant writing assistant for VinCity Entertainment, a Toronto-based arts promotions company. Your job is to conduct a structured interview to build a winning grant application for a client.
 
@@ -44,15 +44,10 @@ RULES:
 - Every question must map directly to an evaluation criterion in the grant
 - Do not ask generic questions — be specific to this grant and this client
 - Ask follow-up questions if an answer is vague or incomplete
-- When you have enough information for a strong application, say: INTERVIEW_COMPLETE
+- When you have enough information for a strong application, output exactly: INTERVIEW_COMPLETE
 - Never repeat a question already asked
 - Prioritize gaps — focus on what the application is missing, not what is already strong
-- If a question has a natural set of choices, append them on a new line as: OPTIONS: Choice A | Choice B | Choice C
-
-CONVERSATION SO FAR:
-${formatConversation(history)}
-
-Ask the next most important question.`;
+- If a question has a natural set of choices, append them on a new line as: OPTIONS: Choice A | Choice B | Choice C`;
 }
 
 // ── Application draft generation ──────────────────────────────────────────────

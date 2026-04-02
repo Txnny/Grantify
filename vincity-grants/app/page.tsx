@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import IngestPanel from '@/components/ingest/IngestPanel';
 import ClientForm from '@/components/intake/ClientForm';
-import { ClientProfile, GrantSession, IngestedSource } from '@/lib/types';
+import InterviewChat from '@/components/interview/InterviewChat';
+import { ClientProfile, ConversationMessage, GrantSession, IngestedSource } from '@/lib/types';
 
 type Stage = 'ingest' | 'intake' | 'interview' | 'draft';
 
@@ -49,7 +50,7 @@ export default function Home() {
     sessionStorage.setItem('vincity-session', JSON.stringify(next));
   }
 
-  // ── Ingest handlers ──────────────────────────────────────────────────────
+  // ── Ingest ───────────────────────────────────────────────────────────────
 
   function handleAddSource(source: IngestedSource) {
     const sources = [...session.sources, source];
@@ -61,11 +62,22 @@ export default function Home() {
     saveSession({ ...session, sources, grantText: buildGrantText(sources) });
   }
 
-  // ── Intake handler ───────────────────────────────────────────────────────
+  // ── Intake ───────────────────────────────────────────────────────────────
 
   function handleClientSubmit(profile: ClientProfile) {
-    saveSession({ ...session, client: profile });
+    saveSession({ ...session, client: profile, conversation: [] });
     setStage('interview');
+  }
+
+  // ── Interview ────────────────────────────────────────────────────────────
+
+  function handleInterviewProgress(history: ConversationMessage[]) {
+    saveSession({ ...session, conversation: history });
+  }
+
+  function handleInterviewComplete(history: ConversationMessage[]) {
+    saveSession({ ...session, conversation: history });
+    setStage('draft');
   }
 
   const currentIndex = STAGE_ORDER.indexOf(stage);
@@ -130,7 +142,12 @@ export default function Home() {
       </div>
 
       {/* Stage content */}
-      <main className="mx-auto max-w-4xl px-6 py-10">
+      <main
+        className={[
+          'mx-auto max-w-4xl px-6',
+          stage === 'interview' ? 'py-4' : 'py-10',
+        ].join(' ')}
+      >
         {stage === 'ingest' && (
           <IngestPanel
             sources={session.sources}
@@ -148,21 +165,38 @@ export default function Home() {
           />
         )}
 
-        {stage === 'interview' && (
+        {stage === 'interview' && session.client && (
+          <InterviewChat
+            grantText={session.grantText}
+            clientProfile={session.client}
+            initialHistory={session.conversation}
+            onComplete={(history) => {
+              handleInterviewProgress(history);
+              handleInterviewComplete(history);
+            }}
+            onBack={() => setStage('intake')}
+          />
+        )}
+
+        {/* Fallback if somehow interview stage reached without client */}
+        {stage === 'interview' && !session.client && (
           <div className="text-center text-neutral-500">
-            <p className="text-lg">Interview — coming in Step 4</p>
-            <button
-              onClick={() => setStage('intake')}
-              className="mt-4 text-sm text-[#C9A84C] hover:underline"
-            >
-              ← Back to Intake
+            <p>Missing client profile.</p>
+            <button onClick={() => setStage('intake')} className="mt-3 text-sm text-[#C9A84C]">
+              ← Go to Intake
             </button>
           </div>
         )}
 
         {stage === 'draft' && (
           <div className="text-center text-neutral-500">
-            <p className="text-lg">Draft — coming in Step 5</p>
+            <p className="text-lg">Application Draft — coming in Step 5</p>
+            <button
+              onClick={() => setStage('interview')}
+              className="mt-4 text-sm text-[#C9A84C] hover:underline"
+            >
+              ← Back to Interview
+            </button>
           </div>
         )}
       </main>
