@@ -4,7 +4,14 @@ import { useEffect, useState } from 'react';
 import IngestPanel from '@/components/ingest/IngestPanel';
 import ClientForm from '@/components/intake/ClientForm';
 import InterviewChat from '@/components/interview/InterviewChat';
-import { ClientProfile, ConversationMessage, GrantSession, IngestedSource } from '@/lib/types';
+import DraftView from '@/components/draft/DraftView';
+import {
+  ApplicationDraft,
+  ClientProfile,
+  ConversationMessage,
+  GrantSession,
+  IngestedSource,
+} from '@/lib/types';
 
 type Stage = 'ingest' | 'intake' | 'interview' | 'draft';
 
@@ -33,7 +40,6 @@ export default function Home() {
   const [stage, setStage] = useState<Stage>('ingest');
   const [session, setSession] = useState<GrantSession>(EMPTY_SESSION);
 
-  // Rehydrate from sessionStorage on mount
   useEffect(() => {
     const stored = sessionStorage.getItem('vincity-session');
     if (stored) {
@@ -65,19 +71,21 @@ export default function Home() {
   // ── Intake ───────────────────────────────────────────────────────────────
 
   function handleClientSubmit(profile: ClientProfile) {
-    saveSession({ ...session, client: profile, conversation: [] });
+    saveSession({ ...session, client: profile, conversation: [], draft: null });
     setStage('interview');
   }
 
   // ── Interview ────────────────────────────────────────────────────────────
 
-  function handleInterviewProgress(history: ConversationMessage[]) {
-    saveSession({ ...session, conversation: history });
-  }
-
   function handleInterviewComplete(history: ConversationMessage[]) {
     saveSession({ ...session, conversation: history });
     setStage('draft');
+  }
+
+  // ── Draft ─────────────────────────────────────────────────────────────────
+
+  function handleDraftReady(draft: ApplicationDraft) {
+    saveSession({ ...session, draft });
   }
 
   const currentIndex = STAGE_ORDER.indexOf(stage);
@@ -170,15 +178,11 @@ export default function Home() {
             grantText={session.grantText}
             clientProfile={session.client}
             initialHistory={session.conversation}
-            onComplete={(history) => {
-              handleInterviewProgress(history);
-              handleInterviewComplete(history);
-            }}
+            onComplete={handleInterviewComplete}
             onBack={() => setStage('intake')}
           />
         )}
 
-        {/* Fallback if somehow interview stage reached without client */}
         {stage === 'interview' && !session.client && (
           <div className="text-center text-neutral-500">
             <p>Missing client profile.</p>
@@ -188,14 +192,22 @@ export default function Home() {
           </div>
         )}
 
-        {stage === 'draft' && (
+        {stage === 'draft' && session.client && (
+          <DraftView
+            grantText={session.grantText}
+            clientProfile={session.client}
+            conversation={session.conversation}
+            initialDraft={session.draft}
+            onDraftReady={handleDraftReady}
+            onBack={() => setStage('interview')}
+          />
+        )}
+
+        {stage === 'draft' && !session.client && (
           <div className="text-center text-neutral-500">
-            <p className="text-lg">Application Draft — coming in Step 5</p>
-            <button
-              onClick={() => setStage('interview')}
-              className="mt-4 text-sm text-[#C9A84C] hover:underline"
-            >
-              ← Back to Interview
+            <p>Missing session data.</p>
+            <button onClick={() => setStage('ingest')} className="mt-3 text-sm text-[#C9A84C]">
+              ← Start over
             </button>
           </div>
         )}

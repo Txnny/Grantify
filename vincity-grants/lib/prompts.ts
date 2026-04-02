@@ -78,7 +78,7 @@ INSTRUCTIONS:
 - Each section should be 100–200 words unless the grant specifies otherwise
 - Flag any sections where more information would strengthen the application
 
-Return a JSON object with this exact shape:
+Return ONLY a valid JSON object — no markdown, no code fences, no explanatory text before or after. Use this exact shape:
 {
   "sections": [
     { "id": "artist_statement", "title": "Artist Statement", "content": "..." },
