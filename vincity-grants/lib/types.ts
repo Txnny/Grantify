@@ -61,6 +61,18 @@ export interface ApplicationDraft {
   flags: ApplicationFlag[];
 }
 
+// ─── Persisted application (dashboard) ───────────────────────────────────────
+
+export interface SavedApplication {
+  id: string;
+  grantName: string;
+  artistName: string;
+  createdAt: string;
+  updatedAt: string;
+  status: 'in-progress' | 'draft-ready' | 'exported';
+  session: GrantSession;
+}
+
 // ─── Session context (top-level state) ───────────────────────────────────────
 
 export interface GrantSession {

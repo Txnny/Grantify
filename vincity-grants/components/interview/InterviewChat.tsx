@@ -92,6 +92,13 @@ export default function InterviewChat({
         setStreamBuffer(accumulated);
       }
 
+      // Check for server-side error marker
+      if (accumulated.startsWith('__ERROR__')) {
+        setError(accumulated.slice(9) || 'API error — check ANTHROPIC_API_KEY in Vercel.');
+        setIsStreaming(false);
+        return;
+      }
+
       // Done streaming — commit to history
       const { text, options: _ } = parseOptions(accumulated);
       const isCompleteSignal = text.includes(COMPLETE_SIGNAL);
