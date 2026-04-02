@@ -1,5 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// pdfjs-dist (used by pdf-parse) references DOMMatrix at module load time.
+// Polyfill it before the require() so the module initialises cleanly on Node.js.
+if (typeof globalThis.DOMMatrix === 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).DOMMatrix = class DOMMatrix {
+    constructor(_init?: string | number[]) {}
+    static fromMatrix() { return new (globalThis as any).DOMMatrix(); }
+    static fromFloat32Array() { return new (globalThis as any).DOMMatrix(); }
+    static fromFloat64Array() { return new (globalThis as any).DOMMatrix(); }
+    multiply() { return this; }
+    translate() { return this; }
+    scale() { return this; }
+    rotate() { return this; }
+    inverse() { return this; }
+  };
+}
+
 export async function POST(req: NextRequest) {
   let formData: FormData;
   try {
@@ -28,7 +45,6 @@ export async function POST(req: NextRequest) {
 
   try {
     if (ext === 'pdf') {
-      // pdf-parse is in serverExternalPackages — safe to require at runtime
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const pdfParse = require('pdf-parse');
       const data = await pdfParse(buffer);
