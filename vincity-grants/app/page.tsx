@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import IngestPanel from '@/components/ingest/IngestPanel';
-import { GrantSession, IngestedSource } from '@/lib/types';
+import ClientForm from '@/components/intake/ClientForm';
+import { ClientProfile, GrantSession, IngestedSource } from '@/lib/types';
 
 type Stage = 'ingest' | 'intake' | 'interview' | 'draft';
 
@@ -48,6 +49,8 @@ export default function Home() {
     sessionStorage.setItem('vincity-session', JSON.stringify(next));
   }
 
+  // ── Ingest handlers ──────────────────────────────────────────────────────
+
   function handleAddSource(source: IngestedSource) {
     const sources = [...session.sources, source];
     saveSession({ ...session, sources, grantText: buildGrantText(sources) });
@@ -56,6 +59,13 @@ export default function Home() {
   function handleRemoveSource(id: string) {
     const sources = session.sources.filter((s) => s.id !== id);
     saveSession({ ...session, sources, grantText: buildGrantText(sources) });
+  }
+
+  // ── Intake handler ───────────────────────────────────────────────────────
+
+  function handleClientSubmit(profile: ClientProfile) {
+    saveSession({ ...session, client: profile });
+    setStage('interview');
   }
 
   const currentIndex = STAGE_ORDER.indexOf(stage);
@@ -131,20 +141,22 @@ export default function Home() {
         )}
 
         {stage === 'intake' && (
-          <div className="text-center text-neutral-500">
-            <p className="text-lg">Client Intake — coming in Step 3</p>
-            <button
-              onClick={() => setStage('ingest')}
-              className="mt-4 text-sm text-[#C9A84C] hover:underline"
-            >
-              ← Back to Ingest
-            </button>
-          </div>
+          <ClientForm
+            initial={session.client ?? undefined}
+            onSubmit={handleClientSubmit}
+            onBack={() => setStage('ingest')}
+          />
         )}
 
         {stage === 'interview' && (
           <div className="text-center text-neutral-500">
             <p className="text-lg">Interview — coming in Step 4</p>
+            <button
+              onClick={() => setStage('intake')}
+              className="mt-4 text-sm text-[#C9A84C] hover:underline"
+            >
+              ← Back to Intake
+            </button>
           </div>
         )}
 
