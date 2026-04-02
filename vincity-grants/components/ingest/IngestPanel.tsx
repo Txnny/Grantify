@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { IngestedSource } from '@/lib/types';
 import UrlFetcher from './UrlFetcher';
+import FileUpload from './FileUpload';
 import SourceList from './SourceList';
 
 type Mode = 'paste' | 'url' | 'file';
@@ -14,10 +15,10 @@ interface Props {
   onContinue: () => void;
 }
 
-const MODES: { id: Mode; label: string; disabled?: boolean }[] = [
+const MODES: { id: Mode; label: string }[] = [
   { id: 'paste', label: 'Paste Text' },
   { id: 'url', label: 'Fetch URL' },
-  { id: 'file', label: 'Upload File', disabled: true },
+  { id: 'file', label: 'Upload File' },
 ];
 
 export default function IngestPanel({ sources, onAdd, onRemove, onContinue }: Props) {
@@ -44,8 +45,8 @@ export default function IngestPanel({ sources, onAdd, onRemove, onContinue }: Pr
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white">Load the Grant</h1>
         <p className="mt-1 text-sm text-neutral-400">
-          Add the grant requirements. You can mix sources — paste guidelines,
-          fetch the grant page, and add past applications.
+          Add the grant requirements. Mix sources — paste guidelines, fetch the
+          grant page, or upload a PDF / DOCX.
         </p>
       </div>
 
@@ -54,20 +55,15 @@ export default function IngestPanel({ sources, onAdd, onRemove, onContinue }: Pr
         {MODES.map((m) => (
           <button
             key={m.id}
-            onClick={() => !m.disabled && setMode(m.id)}
-            disabled={m.disabled}
+            onClick={() => setMode(m.id)}
             className={[
               'flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors',
               mode === m.id
                 ? 'bg-[#C9A84C] text-black'
                 : 'text-neutral-400 hover:text-white',
-              m.disabled ? 'cursor-not-allowed opacity-40' : '',
             ].join(' ')}
           >
             {m.label}
-            {m.disabled && (
-              <span className="ml-1.5 text-xs opacity-60">(Step 7)</span>
-            )}
           </button>
         ))}
       </div>
@@ -110,6 +106,8 @@ export default function IngestPanel({ sources, onAdd, onRemove, onContinue }: Pr
       )}
 
       {mode === 'url' && <UrlFetcher onAdd={onAdd} />}
+
+      {mode === 'file' && <FileUpload onAdd={onAdd} />}
 
       {/* Source list */}
       <SourceList sources={sources} onRemove={onRemove} />
