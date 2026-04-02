@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Increase body size limit for file uploads
-export const config = { api: { bodyParser: false } };
-
 export async function POST(req: NextRequest) {
   let formData: FormData;
   try {
@@ -31,9 +28,9 @@ export async function POST(req: NextRequest) {
 
   try {
     if (ext === 'pdf') {
-      // Use direct module path to bypass pdf-parse's test-file initialisation
+      // pdf-parse is in serverExternalPackages — safe to require at runtime
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const pdfParse = require('pdf-parse/lib/pdf-parse');
+      const pdfParse = require('pdf-parse');
       const data = await pdfParse(buffer);
       text = data.text ?? '';
     } else {
