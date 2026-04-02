@@ -65,8 +65,17 @@ export default function InterviewChat({
       });
 
       if (!res.ok || !res.body) {
-        const text = await res.text().catch(() => 'Unknown error');
-        setError(text);
+        let msg = `Server error (${res.status})`;
+        try {
+          const text = await res.text();
+          // If plain text error (not HTML), use it directly
+          if (text && !text.trimStart().startsWith('<')) {
+            msg = text;
+          } else if (res.status === 500) {
+            msg = 'API error — check that ANTHROPIC_API_KEY is set in Vercel environment variables.';
+          }
+        } catch { /* ignore */ }
+        setError(msg);
         setIsStreaming(false);
         return;
       }
