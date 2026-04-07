@@ -1,16 +1,15 @@
-import { NextRequest } from 'next/server';
-import { anthropic, MODEL } from '@/lib/anthropic';
 import { draftSystemPrompt } from '@/lib/prompts';
 import { ClientProfile, ConversationMessage } from '@/lib/types';
 
-// Streaming keeps the connection alive past Vercel Hobby's 10s function timeout
-// (streaming duration = 25s on Hobby, 300s on Pro)
+// Edge runtime: native streaming support, no Node.js Header validation issues
+export const runtime = 'edge';
 export const maxDuration = 60;
 
-const MAX_GRANT_CHARS = 12000; // truncate very long grant docs
-const MAX_CONV_MESSAGES = 30;  // keep last 30 messages
+const MAX_GRANT_CHARS = 12000;
+const MAX_CONV_MESSAGES = 30;
+const MODEL = 'claude-sonnet-4-6';
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
 
   const grantText: string = (body?.grantText ?? '').slice(0, MAX_GRANT_CHARS);
@@ -24,32 +23,110 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const system = draftSystemPrompt(grantText, clientProfile, conversation);
-  const encoder = new TextEncoder();
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return new Response(
+      JSON.stringify({ error: 'ANTHROPIC_API_KEY is not configured' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
 
+  const system = draftSystemPrompt(grantText, clientProfile, conversation);
+
+  // Call Anthropic API directly via fetch (bypasses SDK header handling)
+  let anthropicRes: Response;
+  try {
+    anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 4000,
+        stream: true,
+        system,
+        messages: [
+          { role: 'user', content: 'Generate the complete grant application now.' },
+        ],
+      }),
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Failed to reach Anthropic API';
+    return new Response(`__ERROR__${msg}`, { status: 500 });
+  }
+
+  if (!anthropicRes.ok) {
+    const errText = await anthropicRes.text().catch(() => '');
+    return new Response(`__ERROR__Anthropic error ${anthropicRes.status}: ${errText.slice(0, 300)}`, {
+      status: 500,
+    });
+  }
+
+  // Parse Anthropic's SSE stream and forward extracted text to the client
+  const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      try {
-        const apiStream = anthropic.messages.stream({
-          model: MODEL,
-          max_tokens: 4000,
-          system,
-          messages: [
-            { role: 'user', content: 'Generate the complete grant application now.' },
-          ],
-        });
+      const reader = anthropicRes.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-        for await (const chunk of apiStream) {
-          if (
-            chunk.type === 'content_block_delta' &&
-            chunk.delta.type === 'text_delta'
-          ) {
-            controller.enqueue(encoder.encode(chunk.delta.text));
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // Process complete SSE lines from the buffer
+          const lines = buffer.split('\n');
+          // Keep the last (possibly incomplete) line in the buffer
+          buffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') continue;
+
+            try {
+              const event = JSON.parse(data);
+              if (
+                event.type === 'content_block_delta' &&
+                event.delta?.type === 'text_delta' &&
+                typeof event.delta.text === 'string'
+              ) {
+                controller.enqueue(encoder.encode(event.delta.text));
+              }
+            } catch {
+              // skip malformed SSE line
+            }
           }
         }
+
+        // Flush any remaining buffer
+        if (buffer.startsWith('data: ')) {
+          const data = buffer.slice(6).trim();
+          if (data && data !== '[DONE]') {
+            try {
+              const event = JSON.parse(data);
+              if (
+                event.type === 'content_block_delta' &&
+                event.delta?.type === 'text_delta' &&
+                typeof event.delta.text === 'string'
+              ) {
+                controller.enqueue(encoder.encode(event.delta.text));
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
+
         controller.close();
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Anthropic API error';
+        const msg = err instanceof Error ? err.message : 'Stream error';
         controller.enqueue(encoder.encode(`\n__ERROR__${msg}`));
         controller.close();
       }
