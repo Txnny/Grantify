@@ -46,11 +46,49 @@ export default function DraftView({
         body: JSON.stringify({ grantText, clientProfile, conversation }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error ?? 'Draft generation failed');
+      if (!res.ok || !res.body) {
+        const text = await res.text().catch(() => '');
+        setError(text || 'Draft generation failed');
         return;
+      }
+
+      // Stream the response and accumulate
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulated += decoder.decode(value, { stream: true });
+      }
+
+      if (accumulated.startsWith('__ERROR__')) {
+        setError(accumulated.slice(9) || 'Draft generation failed');
+        return;
+      }
+
+      // Parse JSON — try raw, fenced, then first {...} block
+      let data;
+      try {
+        data = JSON.parse(accumulated);
+      } catch {
+        const fenced = accumulated.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (fenced) {
+          try { data = JSON.parse(fenced[1].trim()); } catch { /* fall through */ }
+        }
+        if (!data) {
+          // Extract outermost {...} JSON object
+          const start = accumulated.indexOf('{');
+          const end = accumulated.lastIndexOf('}');
+          if (start !== -1 && end !== -1 && end > start) {
+            try { data = JSON.parse(accumulated.slice(start, end + 1)); } catch { /* fall through */ }
+          }
+        }
+        if (!data) {
+          setError('Could not parse draft response. Please retry.');
+          return;
+        }
       }
 
       setDraft(data);
