@@ -40,23 +40,34 @@ export default function DraftView({
     setError(null);
 
     try {
+      let bodyStr: string;
+      try {
+        bodyStr = JSON.stringify({ grantText, clientProfile, conversation });
+      } catch (e) {
+        setError(`Serialization error: ${e instanceof Error ? e.message : String(e)}`);
+        setIsGenerating(false);
+        return;
+      }
+
       const res = await fetch('/api/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ grantText, clientProfile, conversation }),
+        body: bodyStr,
       });
 
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data) {
-        setError(data?.error ?? 'Draft generation failed — please retry.');
+        setError(data?.error ?? `HTTP ${res.status} — draft generation failed. Please retry.`);
         return;
       }
 
       setDraft(data);
       onDraftReady(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Network error');
+      console.error('[DraftView] generateDraft error:', err);
+      const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      setError(msg);
     } finally {
       setIsGenerating(false);
     }

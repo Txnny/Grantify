@@ -37,29 +37,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 502 });
   }
 
-  // Parse JSON — try raw, fenced, then first {...} block
-  let draft: ApplicationDraft;
-  try {
-    draft = JSON.parse(raw);
-  } catch {
+  // Parse JSON — try raw, then fenced, then first {...} block
+  let draft: ApplicationDraft | null = null;
+
+  try { draft = JSON.parse(raw); } catch { /* fall through */ }
+
+  if (!draft) {
     const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (fenced) {
-      try {
-        draft = JSON.parse(fenced[1].trim());
-      } catch { /* fall through */ }
+      try { draft = JSON.parse(fenced[1].trim()); } catch { /* fall through */ }
     }
-    if (!draft!) {
-      const start = raw.indexOf('{');
-      const end = raw.lastIndexOf('}');
-      if (start !== -1 && end > start) {
-        try {
-          draft = JSON.parse(raw.slice(start, end + 1));
-        } catch { /* fall through */ }
-      }
+  }
+
+  if (!draft) {
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+      try { draft = JSON.parse(raw.slice(start, end + 1)); } catch { /* fall through */ }
     }
-    if (!draft!) {
-      return NextResponse.json({ error: 'Could not parse draft response', raw }, { status: 500 });
-    }
+  }
+
+  if (!draft) {
+    return NextResponse.json(
+      { error: 'Could not parse draft — Claude returned malformed JSON. Please retry.' },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json(draft);
