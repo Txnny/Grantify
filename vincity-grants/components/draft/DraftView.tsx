@@ -55,10 +55,53 @@ export default function DraftView({
         body: bodyStr,
       });
 
-      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        setError(errText || `HTTP ${res.status} — draft generation failed. Please retry.`);
+        return;
+      }
 
-      if (!res.ok || !data) {
-        setError(data?.error ?? `HTTP ${res.status} — draft generation failed. Please retry.`);
+      if (!res.body) {
+        setError('No response body — draft generation failed. Please retry.');
+        return;
+      }
+
+      // Consume the streaming plain-text response
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulated += decoder.decode(value, { stream: true });
+
+        // Check for server-side error signal
+        const errIdx = accumulated.indexOf('__ERROR__');
+        if (errIdx !== -1) {
+          setError(accumulated.slice(errIdx + 9) || 'Draft generation failed. Please retry.');
+          return;
+        }
+      }
+
+      // Final flush
+      accumulated += decoder.decode();
+
+      const errIdx = accumulated.indexOf('__ERROR__');
+      if (errIdx !== -1) {
+        setError(accumulated.slice(errIdx + 9) || 'Draft generation failed. Please retry.');
+        return;
+      }
+
+      let data: ApplicationDraft;
+      try {
+        // Strip any stray markdown fences Claude might add despite instructions
+        const jsonStr = accumulated.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+        data = JSON.parse(jsonStr);
+      } catch {
+        console.error('[DraftView] JSON parse failed. Raw text:', accumulated.slice(0, 500));
+        setError('Failed to parse draft response. Please retry.');
         return;
       }
 

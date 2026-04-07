@@ -1,68 +1,65 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { anthropic, MODEL } from '@/lib/anthropic';
 import { draftSystemPrompt } from '@/lib/prompts';
-import { ApplicationDraft, ClientProfile, ConversationMessage } from '@/lib/types';
+import { ClientProfile, ConversationMessage } from '@/lib/types';
 
+// Streaming keeps the connection alive past Vercel Hobby's 10s function timeout
+// (streaming duration = 25s on Hobby, 300s on Pro)
 export const maxDuration = 60;
+
+const MAX_GRANT_CHARS = 12000; // truncate very long grant docs
+const MAX_CONV_MESSAGES = 30;  // keep last 30 messages
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
 
-  const grantText: string = body?.grantText ?? '';
+  const grantText: string = (body?.grantText ?? '').slice(0, MAX_GRANT_CHARS);
   const clientProfile: ClientProfile | null = body?.clientProfile ?? null;
-  const conversation: ConversationMessage[] = body?.conversation ?? [];
+  const conversation: ConversationMessage[] = (body?.conversation ?? []).slice(-MAX_CONV_MESSAGES);
 
   if (!grantText || !clientProfile) {
-    return NextResponse.json(
-      { error: 'grantText and clientProfile are required' },
-      { status: 400 }
+    return new Response(
+      JSON.stringify({ error: 'grantText and clientProfile are required' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
   const system = draftSystemPrompt(grantText, clientProfile, conversation);
+  const encoder = new TextEncoder();
 
-  let raw: string;
-  try {
-    const message = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 8000,
-      system,
-      messages: [
-        { role: 'user', content: 'Generate the complete grant application now.' },
-      ],
-    });
-    raw = message.content[0].type === 'text' ? message.content[0].text : '';
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Anthropic API error';
-    return NextResponse.json({ error: msg }, { status: 502 });
-  }
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        const apiStream = anthropic.messages.stream({
+          model: MODEL,
+          max_tokens: 4000,
+          system,
+          messages: [
+            { role: 'user', content: 'Generate the complete grant application now.' },
+          ],
+        });
 
-  // Parse JSON — try raw, then fenced, then first {...} block
-  let draft: ApplicationDraft | null = null;
+        for await (const chunk of apiStream) {
+          if (
+            chunk.type === 'content_block_delta' &&
+            chunk.delta.type === 'text_delta'
+          ) {
+            controller.enqueue(encoder.encode(chunk.delta.text));
+          }
+        }
+        controller.close();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Anthropic API error';
+        controller.enqueue(encoder.encode(`\n__ERROR__${msg}`));
+        controller.close();
+      }
+    },
+  });
 
-  try { draft = JSON.parse(raw); } catch { /* fall through */ }
-
-  if (!draft) {
-    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (fenced) {
-      try { draft = JSON.parse(fenced[1].trim()); } catch { /* fall through */ }
-    }
-  }
-
-  if (!draft) {
-    const start = raw.indexOf('{');
-    const end = raw.lastIndexOf('}');
-    if (start !== -1 && end > start) {
-      try { draft = JSON.parse(raw.slice(start, end + 1)); } catch { /* fall through */ }
-    }
-  }
-
-  if (!draft) {
-    return NextResponse.json(
-      { error: 'Could not parse draft — Claude returned malformed JSON. Please retry.' },
-      { status: 500 }
-    );
-  }
-
-  return NextResponse.json(draft);
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-cache',
+    },
+  });
 }
