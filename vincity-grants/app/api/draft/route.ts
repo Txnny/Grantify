@@ -1,7 +1,7 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { anthropic, MODEL } from '@/lib/anthropic';
 import { draftSystemPrompt } from '@/lib/prompts';
-import { ClientProfile, ConversationMessage } from '@/lib/types';
+import { ApplicationDraft, ClientProfile, ConversationMessage } from '@/lib/types';
 
 export const maxDuration = 60;
 
@@ -13,48 +13,54 @@ export async function POST(req: NextRequest) {
   const conversation: ConversationMessage[] = body?.conversation ?? [];
 
   if (!grantText || !clientProfile) {
-    return new Response(
-      JSON.stringify({ error: 'grantText and clientProfile are required' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    return NextResponse.json(
+      { error: 'grantText and clientProfile are required' },
+      { status: 400 }
     );
   }
 
   const system = draftSystemPrompt(grantText, clientProfile, conversation);
-  const encoder = new TextEncoder();
 
-  const stream = new ReadableStream({
-    async start(controller) {
+  let raw: string;
+  try {
+    const message = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 8000,
+      system,
+      messages: [
+        { role: 'user', content: 'Generate the complete grant application now.' },
+      ],
+    });
+    raw = message.content[0].type === 'text' ? message.content[0].text : '';
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Anthropic API error';
+    return NextResponse.json({ error: msg }, { status: 502 });
+  }
+
+  // Parse JSON — try raw, fenced, then first {...} block
+  let draft: ApplicationDraft;
+  try {
+    draft = JSON.parse(raw);
+  } catch {
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenced) {
       try {
-        const apiStream = anthropic.messages.stream({
-          model: MODEL,
-          max_tokens: 8000,
-          system,
-          messages: [
-            { role: 'user', content: 'Generate the complete grant application now.' },
-          ],
-        });
-
-        for await (const chunk of apiStream) {
-          if (
-            chunk.type === 'content_block_delta' &&
-            chunk.delta.type === 'text_delta'
-          ) {
-            controller.enqueue(encoder.encode(chunk.delta.text));
-          }
-        }
-        controller.close();
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Anthropic API error';
-        controller.enqueue(encoder.encode(`__ERROR__${msg}`));
-        controller.close();
+        draft = JSON.parse(fenced[1].trim());
+      } catch { /* fall through */ }
+    }
+    if (!draft!) {
+      const start = raw.indexOf('{');
+      const end = raw.lastIndexOf('}');
+      if (start !== -1 && end > start) {
+        try {
+          draft = JSON.parse(raw.slice(start, end + 1));
+        } catch { /* fall through */ }
       }
-    },
-  });
+    }
+    if (!draft!) {
+      return NextResponse.json({ error: 'Could not parse draft response', raw }, { status: 500 });
+    }
+  }
 
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'no-cache',
-    },
-  });
+  return NextResponse.json(draft);
 }
