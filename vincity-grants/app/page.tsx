@@ -45,9 +45,9 @@ export default function Home() {
   const [sessionId, setSessionId] = useState<string>('');
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('vincity-session');
-    const storedStage = sessionStorage.getItem('vincity-stage') as Stage | null;
-    const storedId = sessionStorage.getItem('vincity-session-id');
+    const stored = localStorage.getItem('vincity-session');
+    const storedStage = localStorage.getItem('vincity-stage') as Stage | null;
+    const storedId = localStorage.getItem('vincity-session-id');
     if (stored) {
       try {
         setSession(JSON.parse(stored));
@@ -61,13 +61,13 @@ export default function Home() {
     } else {
       const id = crypto.randomUUID();
       setSessionId(id);
-      sessionStorage.setItem('vincity-session-id', id);
+      localStorage.setItem('vincity-session-id', id);
     }
   }, []);
 
   function saveSession(next: GrantSession, nextStage?: Stage) {
     setSession(next);
-    sessionStorage.setItem('vincity-session', JSON.stringify(next));
+    localStorage.setItem('vincity-session', JSON.stringify(next));
     // Persist to dashboard storage
     const status = next.draft ? 'draft-ready' : 'in-progress';
     saveApplication({
@@ -81,13 +81,13 @@ export default function Home() {
     });
     if (nextStage) {
       setStage(nextStage);
-      sessionStorage.setItem('vincity-stage', nextStage);
+      localStorage.setItem('vincity-stage', nextStage);
     }
   }
 
   function goToStage(s: Stage) {
     setStage(s);
-    sessionStorage.setItem('vincity-stage', s);
+    localStorage.setItem('vincity-stage', s);
   }
 
   // ── Ingest ───────────────────────────────────────────────────────────────
@@ -154,12 +154,12 @@ export default function Home() {
             </button>
             <button
               onClick={() => {
-                sessionStorage.removeItem('vincity-session');
-                sessionStorage.removeItem('vincity-stage');
-                sessionStorage.removeItem('vincity-session-id');
+                localStorage.removeItem('vincity-session');
+                localStorage.removeItem('vincity-stage');
+                localStorage.removeItem('vincity-session-id');
                 const id = crypto.randomUUID();
                 setSessionId(id);
-                sessionStorage.setItem('vincity-session-id', id);
+                localStorage.setItem('vincity-session-id', id);
                 setSession(EMPTY_SESSION);
                 setStage('ingest');
               }}

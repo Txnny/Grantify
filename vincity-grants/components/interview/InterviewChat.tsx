@@ -39,16 +39,19 @@ export default function InterviewChat({
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [history, streamBuffer]);
 
-  // Kick off first question on mount
+  // Kick off first question on mount, or resume if last message was from user
   useEffect(() => {
-    if (!hasStarted.current && history.length === 0) {
-      hasStarted.current = true;
+    if (hasStarted.current) return;
+    hasStarted.current = true;
+
+    if (history.length === 0) {
+      // Fresh session — ask first question
       askNext([]);
+    } else if (history[history.length - 1].role === 'user') {
+      // Resumed mid-session after a drop — last user answer was sent but AI hadn't replied
+      askNext(history);
     }
-    // If resuming mid-session
-    if (!hasStarted.current && history.length > 0) {
-      hasStarted.current = true;
-    }
+    // Otherwise last message is from AI — user just needs to type their answer
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -34,18 +34,18 @@ export default function Dashboard() {
   }, []);
 
   function handleResume(app: SavedApplication) {
-    sessionStorage.setItem('vincity-session', JSON.stringify(app.session));
-    sessionStorage.setItem('vincity-session-id', app.id);
+    localStorage.setItem('vincity-session', JSON.stringify(app.session));
+    localStorage.setItem('vincity-session-id', app.id);
     const stage = app.session.draft
       ? 'draft'
       : app.session.conversation.length > 0
-        ? 'draft'
+        ? 'interview'
         : app.session.client
           ? 'interview'
           : app.session.sources.length > 0
             ? 'intake'
             : 'ingest';
-    sessionStorage.setItem('vincity-stage', stage);
+    localStorage.setItem('vincity-stage', stage);
     router.push('/');
   }
 
