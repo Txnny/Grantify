@@ -45,7 +45,7 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 4000,
+        max_tokens: 2000,
         stream: true,
         system,
         messages: [
@@ -54,8 +54,9 @@ export async function POST(req: Request) {
       }),
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Failed to reach Anthropic API';
-    return new Response(`__ERROR__${msg}`, { status: 500 });
+    const cls = err?.constructor?.name ?? 'UnknownError';
+    const msg = err instanceof Error ? err.message : String(err);
+    return new Response(`__ERROR__[${cls}] ${msg}`, { status: 500 });
   }
 
   if (!anthropicRes.ok) {
@@ -126,8 +127,9 @@ export async function POST(req: Request) {
 
         controller.close();
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Stream error';
-        controller.enqueue(encoder.encode(`\n__ERROR__${msg}`));
+        const cls = err?.constructor?.name ?? 'UnknownError';
+        const msg = err instanceof Error ? err.message : String(err);
+        controller.enqueue(encoder.encode(`\n__ERROR__[${cls}] ${msg}`));
         controller.close();
       }
     },
