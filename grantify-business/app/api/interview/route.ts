@@ -1,14 +1,18 @@
 import { NextRequest } from 'next/server';
-import { anthropic, MODEL } from '@/lib/anthropic';
+import { anthropic, FAST_MODEL } from '@/lib/anthropic';
 import { interviewSystemPrompt } from '@/lib/prompts';
 import { BusinessProfile, ConversationMessage } from '@/lib/types';
+
+const MAX_GRANT_CHARS = 3000;
+const MAX_HISTORY = 8;
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
 
-  const grantText: string = body?.grantText ?? '';
+  const grantText: string = (body?.grantText ?? '').slice(0, MAX_GRANT_CHARS);
   const clientProfile: BusinessProfile | null = body?.clientProfile ?? null;
-  const conversationHistory: ConversationMessage[] = body?.conversationHistory ?? [];
+  const conversationHistory: ConversationMessage[] =
+    (body?.conversationHistory ?? []).slice(-MAX_HISTORY);
 
   if (!grantText || !clientProfile) {
     return new Response('grantText and clientProfile are required', { status: 400 });
@@ -18,7 +22,7 @@ export async function POST(req: NextRequest) {
 
   const messages: { role: 'user' | 'assistant'; content: string }[] =
     conversationHistory.length === 0
-      ? [{ role: 'user', content: 'Please begin the interview with your first question.' }]
+      ? [{ role: 'user', content: 'Begin the interview with your first question.' }]
       : conversationHistory.map((m) => ({ role: m.role, content: m.content }));
 
   const encoder = new TextEncoder();
@@ -27,8 +31,8 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       try {
         const apiStream = anthropic.messages.stream({
-          model: MODEL,
-          max_tokens: 1024,
+          model: FAST_MODEL,
+          max_tokens: 512,
           system,
           messages,
         });
@@ -43,7 +47,6 @@ export async function POST(req: NextRequest) {
         }
         controller.close();
       } catch (err) {
-        // Encode the actual error so the client can display it
         const msg = err instanceof Error ? err.message : String(err);
         controller.enqueue(encoder.encode(`__ERROR__${msg}`));
         controller.close();

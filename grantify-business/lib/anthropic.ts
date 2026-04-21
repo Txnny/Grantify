@@ -4,7 +4,8 @@ export const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-export const MODEL = 'claude-sonnet-4-6'; // latest
+export const MODEL = 'claude-sonnet-4-6';       // draft quality
+export const FAST_MODEL = 'claude-haiku-4-5-20251001'; // interview speed + cost
 
 /**
  * Helper to stream a message from Claude and pipe it to a ReadableStream
