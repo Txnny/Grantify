@@ -96,11 +96,15 @@ export default function DraftView({
 
       let data: ApplicationDraft;
       try {
-        // Strip any stray markdown fences Claude might add despite instructions
-        const jsonStr = accumulated.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim();
-        data = JSON.parse(jsonStr);
-      } catch {
-        console.error('[DraftView] JSON parse failed. Raw text:', accumulated.slice(0, 500));
+        const start = accumulated.indexOf('{');
+        const end = accumulated.lastIndexOf('}');
+        if (start === -1 || end === -1 || end <= start) {
+          throw new Error(`No JSON object found in response (${accumulated.length} chars)`);
+        }
+        data = JSON.parse(accumulated.slice(start, end + 1));
+      } catch (parseErr) {
+        console.error('[DraftView] JSON parse failed:', parseErr);
+        console.error('[DraftView] Raw response (first 800 chars):', accumulated.slice(0, 800));
         setError('Failed to parse draft response. Please retry.');
         return;
       }
