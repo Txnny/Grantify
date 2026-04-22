@@ -9,21 +9,27 @@ export interface IngestedSource {
   type: 'paste' | 'url' | 'file';
 }
 
-// ─── Client Profile ───────────────────────────────────────────────────────────
+// ─── Business Profile ─────────────────────────────────────────────────────────
 
-export type CareerStage = 'Emerging' | 'Mid-career' | 'Established';
+export type CompanyStage = 'Pre-revenue' | 'Early-stage' | 'Growth' | 'Established';
 
-export interface ClientProfile {
-  artistName: string;
-  organizationName?: string;
+export interface BusinessProfile {
+  companyName: string;
+  contactName: string;
+  sector: string;
+  companyStage: CompanyStage;
+  annualRevenue: string;
+  employeeCount: string;
   city: string;
   province: string;
-  disciplines: string[];
-  careerStage: CareerStage;
-  equityIdentities: string[];
   grantName: string;
+  projectTitle: string;
   projectDescription: string;
-  credentials?: string;
+  fundingRequested: string;
+  womenLed: boolean;
+  indigenousLed: boolean;
+  socialEnterprise: boolean;
+  website?: string;
 }
 
 // ─── Interview ────────────────────────────────────────────────────────────────
@@ -43,8 +49,9 @@ export interface ApplicationSection {
 
 export interface StrengthScores {
   eligibility: number;
-  narrative: number;
-  community_impact: number;
+  innovation: number;
+  market_viability: number;
+  team_capacity: number;
   financial_viability: number;
   overall: number;
 }
@@ -66,7 +73,7 @@ export interface ApplicationDraft {
 export interface SavedApplication {
   id: string;
   grantName: string;
-  artistName: string;
+  companyName: string;
   createdAt: string;
   updatedAt: string;
   status: 'in-progress' | 'draft-ready' | 'exported';
@@ -78,7 +85,7 @@ export interface SavedApplication {
 export interface GrantSession {
   sources: IngestedSource[];
   grantText: string;
-  client: ClientProfile | null;
+  business: BusinessProfile | null;
   conversation: ConversationMessage[];
   draft: ApplicationDraft | null;
 }
