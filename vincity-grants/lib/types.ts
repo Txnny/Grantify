@@ -77,7 +77,7 @@ export interface SavedApplication {
 
 export interface GrantSession {
   sources: IngestedSource[];
-  grantText: string;        // concatenated text from all ingested sources
+  grantText: string;
   client: ClientProfile | null;
   conversation: ConversationMessage[];
   draft: ApplicationDraft | null;

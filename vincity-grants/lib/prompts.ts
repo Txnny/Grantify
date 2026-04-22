@@ -75,7 +75,7 @@ INSTRUCTIONS:
 - Address every evaluation criterion explicitly
 - For equity-focused grants: lead with cultural identity as a strength, not an afterthought
 - Avoid generic arts grant clichés ("unique voice", "raise awareness", "foster dialogue")
-- Each section should be 100–200 words unless the grant specifies otherwise
+- Each section should be 60–90 words unless the grant specifies otherwise
 - Flag any sections where more information would strengthen the application
 
 Return ONLY a valid JSON object — no markdown, no code fences, no explanatory text before or after. Use this exact shape:

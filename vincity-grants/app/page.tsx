@@ -6,6 +6,7 @@ import IngestPanel from '@/components/ingest/IngestPanel';
 import ClientForm from '@/components/intake/ClientForm';
 import InterviewChat from '@/components/interview/InterviewChat';
 import DraftView from '@/components/draft/DraftView';
+import AuthButton from '@/components/auth/AuthButton';
 import {
   ApplicationDraft,
   ClientProfile,
@@ -49,9 +50,7 @@ export default function Home() {
     const storedStage = localStorage.getItem('vincity-stage') as Stage | null;
     const storedId = localStorage.getItem('vincity-session-id');
     if (stored) {
-      try {
-        setSession(JSON.parse(stored));
-      } catch { /* ignore corrupt storage */ }
+      try { setSession(JSON.parse(stored)); } catch { /* ignore corrupt storage */ }
     }
     if (storedStage && STAGE_ORDER.includes(storedStage)) {
       setStage(storedStage);
@@ -68,7 +67,6 @@ export default function Home() {
   function saveSession(next: GrantSession, nextStage?: Stage) {
     setSession(next);
     localStorage.setItem('vincity-session', JSON.stringify(next));
-    // Persist to dashboard storage
     const status = next.draft ? 'draft-ready' : 'in-progress';
     saveApplication({
       id: sessionId || 'default',
@@ -90,8 +88,6 @@ export default function Home() {
     localStorage.setItem('vincity-stage', s);
   }
 
-  // ── Ingest ───────────────────────────────────────────────────────────────
-
   function handleAddSource(source: IngestedSource) {
     const sources = [...session.sources, source];
     saveSession({ ...session, sources, grantText: buildGrantText(sources) });
@@ -102,19 +98,13 @@ export default function Home() {
     saveSession({ ...session, sources, grantText: buildGrantText(sources) });
   }
 
-  // ── Intake ───────────────────────────────────────────────────────────────
-
   function handleClientSubmit(profile: ClientProfile) {
     saveSession({ ...session, client: profile, conversation: [], draft: null }, 'interview');
   }
 
-  // ── Interview ────────────────────────────────────────────────────────────
-
   function handleInterviewComplete(history: ConversationMessage[]) {
     saveSession({ ...session, conversation: history }, 'draft');
   }
-
-  // ── Draft ─────────────────────────────────────────────────────────────────
 
   function handleDraftReady(draft: ApplicationDraft) {
     saveSession({ ...session, draft });
@@ -122,11 +112,9 @@ export default function Home() {
 
   const currentIndex = STAGE_ORDER.indexOf(stage);
 
-  // Which stages can be navigated to (completed or current)
   function canNavigateTo(s: Stage) {
     const idx = STAGE_ORDER.indexOf(s);
     if (idx <= currentIndex) return true;
-    // Can go to intake if sources exist; interview if client exists; draft if conversation exists
     if (s === 'intake') return session.sources.length > 0;
     if (s === 'interview') return !!session.client;
     if (s === 'draft') return session.conversation.length > 0;
@@ -139,9 +127,7 @@ export default function Home() {
       <header className="border-b border-neutral-800 px-6 py-4">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold tracking-widest text-[#C9A84C] uppercase">
-              VinCity
-            </span>
+            <span className="text-sm font-bold tracking-widest text-[#C9A84C] uppercase">VinCity</span>
             <span className="text-neutral-600">/</span>
             <span className="text-sm text-neutral-400">Grant Intelligence</span>
           </div>
@@ -167,6 +153,7 @@ export default function Home() {
             >
               New session
             </button>
+            <AuthButton />
           </div>
         </div>
       </header>
@@ -222,18 +209,13 @@ export default function Home() {
             >
               ← {currentIndex > 0 ? STAGE_LABELS[STAGE_ORDER[currentIndex - 1]] : ''}
             </button>
-            <span className="text-xs text-neutral-700">
-              {currentIndex + 1} / {STAGE_ORDER.length}
-            </span>
+            <span className="text-xs text-neutral-700">{currentIndex + 1} / {STAGE_ORDER.length}</span>
             <button
               onClick={() => {
                 const next = STAGE_ORDER[currentIndex + 1];
                 if (next && canNavigateTo(next)) goToStage(next);
               }}
-              disabled={
-                currentIndex >= STAGE_ORDER.length - 1 ||
-                !canNavigateTo(STAGE_ORDER[currentIndex + 1])
-              }
+              disabled={currentIndex >= STAGE_ORDER.length - 1 || !canNavigateTo(STAGE_ORDER[currentIndex + 1])}
               className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-300 disabled:opacity-0 transition-colors"
             >
               {currentIndex < STAGE_ORDER.length - 1 ? STAGE_LABELS[STAGE_ORDER[currentIndex + 1]] : ''} →
@@ -243,12 +225,7 @@ export default function Home() {
       )}
 
       {/* Stage content */}
-      <main
-        className={[
-          'mx-auto max-w-4xl px-6',
-          stage === 'interview' ? 'py-4' : 'py-10',
-        ].join(' ')}
-      >
+      <main className={['mx-auto max-w-4xl px-6', stage === 'interview' ? 'py-4' : 'py-10'].join(' ')}>
         {stage === 'ingest' && (
           <IngestPanel
             sources={session.sources}

@@ -6,6 +6,7 @@ import IngestPanel from '@/components/ingest/IngestPanel';
 import ClientForm from '@/components/intake/ClientForm';
 import InterviewChat from '@/components/interview/InterviewChat';
 import DraftView from '@/components/draft/DraftView';
+import AuthButton from '@/components/auth/AuthButton';
 import {
   ApplicationDraft,
   BusinessProfile,
@@ -156,6 +157,7 @@ export default function Home() {
             >
               New session
             </button>
+            <AuthButton />
           </div>
         </div>
       </header>

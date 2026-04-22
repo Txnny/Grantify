@@ -1,31 +1,105 @@
 import { SavedApplication } from './types';
+import { createClient } from './supabase';
 
-const KEY = 'vincity-applications';
+const LOCAL_KEY = 'vincity-applications';
 
-export function loadApplications(): SavedApplication[] {
+// ── localStorage helpers ──────────────────────────────────────────────────────
+
+function localLoad(): SavedApplication[] {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(LOCAL_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
 }
 
-export function saveApplication(app: SavedApplication) {
+function localSave(apps: SavedApplication[]) {
   if (typeof window === 'undefined') return;
-  const apps = loadApplications();
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(apps));
+}
+
+// ── Supabase helpers ──────────────────────────────────────────────────────────
+
+async function getUser() {
+  try {
+    const supabase = createClient();
+    const { data } = await supabase.auth.getUser();
+    return data.user;
+  } catch {
+    return null;
+  }
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+export async function loadApplications(): Promise<SavedApplication[]> {
+  const user = await getUser();
+  if (user) {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('applications')
+        .select('*')
+        .order('updated_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        grantName: row.grant_name,
+        artistName: row.artist_name,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        status: row.status,
+        session: row.session_data,
+      }));
+    } catch {
+      // fall through to localStorage
+    }
+  }
+  return localLoad();
+}
+
+export async function saveApplication(app: SavedApplication) {
+  const user = await getUser();
+  if (user) {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from('applications').upsert({
+        id: app.id,
+        user_id: user.id,
+        grant_name: app.grantName,
+        artist_name: app.artistName,
+        status: app.status,
+        session_data: app.session,
+        updated_at: new Date().toISOString(),
+      });
+      if (!error) return;
+    } catch {
+      // fall through to localStorage
+    }
+  }
+  // localStorage fallback
+  const apps = localLoad();
   const idx = apps.findIndex((a) => a.id === app.id);
   if (idx >= 0) {
     apps[idx] = { ...apps[idx], ...app, updatedAt: new Date().toISOString() };
   } else {
     apps.unshift(app);
   }
-  localStorage.setItem(KEY, JSON.stringify(apps));
+  localSave(apps);
 }
 
-export function deleteApplication(id: string) {
-  if (typeof window === 'undefined') return;
-  const apps = loadApplications().filter((a) => a.id !== id);
-  localStorage.setItem(KEY, JSON.stringify(apps));
+export async function deleteApplication(id: string) {
+  const user = await getUser();
+  if (user) {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from('applications').delete().eq('id', id);
+      if (!error) return;
+    } catch {
+      // fall through to localStorage
+    }
+  }
+  localSave(localLoad().filter((a) => a.id !== id));
 }

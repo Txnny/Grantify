@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SavedApplication } from '@/lib/types';
 import { deleteApplication, loadApplications } from '@/lib/storage';
+import AuthButton from '@/components/auth/AuthButton';
 
 const STATUS_LABEL: Record<SavedApplication['status'], string> = {
   'in-progress': 'In Progress',
@@ -30,7 +31,7 @@ export default function Dashboard() {
   const [apps, setApps] = useState<SavedApplication[]>([]);
 
   useEffect(() => {
-    setApps(loadApplications());
+    loadApplications().then(setApps);
   }, []);
 
   function handleResume(app: SavedApplication) {
@@ -49,8 +50,8 @@ export default function Dashboard() {
     router.push('/');
   }
 
-  function handleDelete(id: string) {
-    deleteApplication(id);
+  async function handleDelete(id: string) {
+    await deleteApplication(id);
     setApps((prev) => prev.filter((a) => a.id !== id));
   }
 
@@ -66,12 +67,15 @@ export default function Dashboard() {
             <span className="text-neutral-600">/</span>
             <span className="text-sm text-neutral-400">My Applications</span>
           </div>
-          <button
-            onClick={() => router.push('/')}
-            className="rounded-md bg-[#C9A84C] px-4 py-2 text-xs font-semibold text-black hover:bg-[#b8963f] transition-colors"
-          >
-            + New Application
-          </button>
+          <div className="flex items-center gap-3">
+            <AuthButton />
+            <button
+              onClick={() => router.push('/')}
+              className="rounded-md bg-[#C9A84C] px-4 py-2 text-xs font-semibold text-black hover:bg-[#b8963f] transition-colors"
+            >
+              + New Application
+            </button>
+          </div>
         </div>
       </header>
 

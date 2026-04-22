@@ -84,7 +84,7 @@ INSTRUCTIONS:
 - For equity-focused grants: lead with identity as a strength and market access advantage
 - Avoid vague language ("innovative solution", "significant impact") — quantify everything
 - Flag any sections where more information would strengthen the application
-- Each section should be 150–250 words unless the grant specifies otherwise
+- Each section should be 60–90 words unless the grant specifies otherwise
 
 Return ONLY a valid JSON object — no markdown, no code fences, no explanatory text. Use this exact shape:
 {

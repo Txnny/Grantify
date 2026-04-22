@@ -1,7 +1,6 @@
 import { draftSystemPrompt } from '@/lib/prompts';
 import { ClientProfile, ConversationMessage } from '@/lib/types';
 
-// Edge runtime: native streaming support, no Node.js Header validation issues
 export const runtime = 'edge';
 export const maxDuration = 60;
 
@@ -33,7 +32,6 @@ export async function POST(req: Request) {
 
   const system = draftSystemPrompt(grantText, clientProfile, conversation);
 
-  // Call Anthropic API directly via fetch (bypasses SDK header handling)
   let anthropicRes: Response;
   try {
     anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -45,7 +43,7 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 3500,
+        max_tokens: 1800,
         stream: true,
         system,
         messages: [
@@ -66,7 +64,6 @@ export async function POST(req: Request) {
     });
   }
 
-  // Parse Anthropic's SSE stream and forward extracted text to the client
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -80,10 +77,7 @@ export async function POST(req: Request) {
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-
-          // Process complete SSE lines from the buffer
           const lines = buffer.split('\n');
-          // Keep the last (possibly incomplete) line in the buffer
           buffer = lines.pop() ?? '';
 
           for (const line of lines) {
@@ -106,7 +100,6 @@ export async function POST(req: Request) {
           }
         }
 
-        // Flush any remaining buffer
         if (buffer.startsWith('data: ')) {
           const data = buffer.slice(6).trim();
           if (data && data !== '[DONE]') {
@@ -119,9 +112,7 @@ export async function POST(req: Request) {
               ) {
                 controller.enqueue(encoder.encode(event.delta.text));
               }
-            } catch {
-              // ignore
-            }
+            } catch { /* ignore */ }
           }
         }
 
