@@ -5,7 +5,7 @@ export const maxDuration = 60;
 
 const MAX_GRANT_CHARS = 12000;
 const MAX_CONV_MESSAGES = 30;
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = 'claude-haiku-4-5-20251001';
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
