@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 2500,
+        max_tokens: 4096,
         stream: true,
         system,
         messages: [
