@@ -105,9 +105,8 @@ export default function DraftView({
         }
         data = JSON.parse(accumulated.slice(start, end + 1));
       } catch (parseErr) {
-        console.error('[DraftView] JSON parse failed:', parseErr);
-        console.error('[DraftView] Raw response (first 800 chars):', accumulated.slice(0, 800));
-        setError('Failed to parse draft response. Please retry.');
+        const preview = accumulated.slice(0, 300).trim() || '(empty response)';
+        setError(`Failed to parse draft response. Claude returned: "${preview}"`);
         return;
       }
 

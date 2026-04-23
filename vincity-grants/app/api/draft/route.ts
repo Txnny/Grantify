@@ -93,6 +93,11 @@ export async function POST(req: Request) {
                 typeof event.delta.text === 'string'
               ) {
                 controller.enqueue(encoder.encode(event.delta.text));
+              } else if (event.type === 'error') {
+                const errMsg = event.error?.message ?? 'API stream error';
+                controller.enqueue(encoder.encode(`__ERROR__${errMsg}`));
+                controller.close();
+                return;
               }
             } catch {
               // skip malformed SSE line
@@ -111,6 +116,11 @@ export async function POST(req: Request) {
                 typeof event.delta.text === 'string'
               ) {
                 controller.enqueue(encoder.encode(event.delta.text));
+              } else if (event.type === 'error') {
+                const errMsg = event.error?.message ?? 'API stream error';
+                controller.enqueue(encoder.encode(`__ERROR__${errMsg}`));
+                controller.close();
+                return;
               }
             } catch { /* ignore */ }
           }
