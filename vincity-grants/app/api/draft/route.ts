@@ -1,7 +1,6 @@
 import { draftSystemPrompt } from '@/lib/prompts';
 import { ClientProfile, ConversationMessage } from '@/lib/types';
 
-export const runtime = 'edge';
 export const maxDuration = 60;
 
 const MAX_GRANT_CHARS = 12000;
