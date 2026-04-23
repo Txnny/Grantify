@@ -1,6 +1,8 @@
 import { draftSystemPrompt } from '@/lib/prompts';
 import { ClientProfile, ConversationMessage } from '@/lib/types';
 
+// Edge avoids the ~10s Node serverless cap on Vercel Hobby, so the draft stream can finish.
+export const runtime = 'edge';
 export const maxDuration = 60;
 
 const MAX_GRANT_CHARS = 12000;
@@ -42,7 +44,7 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 8192,
+        max_tokens: 16384,
         stream: true,
         system,
         messages: [
