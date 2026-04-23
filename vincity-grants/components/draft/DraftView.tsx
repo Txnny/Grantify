@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ApplicationDraft, ClientProfile, ConversationMessage } from '@/lib/types';
+import { parseDraftJson } from '@/lib/parseDraftResponse';
 import ApplicationPreview from './ApplicationPreview';
 import StrengthScore from './StrengthScore';
 
@@ -96,17 +97,18 @@ export default function DraftView({
 
       let data: ApplicationDraft;
       try {
-        // Find the outermost { ... } block — robust against markdown fences,
-        // preamble text, or trailing commentary Claude might add
-        const start = accumulated.indexOf('{');
-        const end = accumulated.lastIndexOf('}');
-        if (start === -1 || end === -1 || end <= start) {
-          throw new Error(`No JSON object found in response (${accumulated.length} chars)`);
-        }
-        data = JSON.parse(accumulated.slice(start, end + 1));
+        data = parseDraftJson<ApplicationDraft>(accumulated);
       } catch (parseErr) {
+        console.error('[DraftView] JSON parse failed:', parseErr);
         const preview = accumulated.slice(0, 300).trim() || '(empty response)';
-        setError(`Failed to parse draft response. Claude returned: "${preview}"`);
+        const hint =
+          parseErr instanceof Error &&
+          (parseErr.message.includes('truncated') || parseErr.message.includes('likely truncated'))
+            ? ' The stream may have hit the token limit — try again or increase max_tokens on /api/draft.'
+            : '';
+        setError(
+          `Failed to parse draft response.${hint} Start of response: "${preview}"`
+        );
         return;
       }
 
