@@ -19,9 +19,7 @@ export default function AuthPage() {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     if (p.get('error') === 'email_confirm_failed') {
-      setError(
-        'That confirmation link is invalid or expired. Sign in if you already confirmed, or use “Resend confirmation” after signing up again with the same email.'
-      );
+      setError('That confirmation link is invalid or expired. Try signing in directly.');
       const u = new URL(window.location.href);
       u.searchParams.delete('error');
       window.history.replaceState({}, '', u.pathname + u.search);
@@ -43,14 +41,26 @@ export default function AuthPage() {
         options: { emailRedirectTo: emailRedirectTo() },
       });
       if (resendErr) throw resendErr;
-      setSuccess(
-        'Another confirmation email is on its way. Check spam and Promotions, and wait a few minutes before trying again.'
-      );
+      setSuccess('Confirmation email sent — check spam and Promotions.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not resend email.');
     } finally {
       setResendLoading(false);
     }
+  }
+
+  async function trySignIn(emailVal: string, passwordVal: string): Promise<boolean> {
+    const supabase = createClient();
+    const { error: signInErr } = await supabase.auth.signInWithPassword({
+      email: emailVal,
+      password: passwordVal,
+    });
+    if (!signInErr) {
+      router.push('/dashboard');
+      router.refresh();
+      return true;
+    }
+    return false;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -74,25 +84,27 @@ export default function AuthPage() {
         });
         if (signErr) throw signErr;
 
+        // Email confirmation disabled — session returned immediately
         if (data.session) {
           router.push('/dashboard');
           router.refresh();
           return;
         }
 
+        // Email already registered (confirmed or unconfirmed) — try signing in directly
         const identities = data.user?.identities ?? [];
         if (data.user && identities.length === 0) {
-          setAwaitingEmailConfirm(true);
-          setError(
-            'Supabase treats this email as already registered (often an unconfirmed duplicate signup). Try Sign in, or use “Resend confirmation” with the email above.'
-          );
+          const ok = await trySignIn(email, password);
+          if (ok) return;
+          // Wrong password for existing account
+          setError('This email is already registered. Check your password and use Sign in.');
+          setMode('login');
           return;
         }
 
+        // New signup, email confirmation required
         setAwaitingEmailConfirm(true);
-        setSuccess(
-          'If this address is new, Supabase will send a confirmation link. Check spam and Promotions. No email after several minutes usually means SMTP is not configured in the Supabase dashboard, or the address is already confirmed — try Sign in.'
-        );
+        setSuccess('Check your inbox for a confirmation link. If nothing arrives, your Supabase project needs SMTP configured — or ask the admin to disable email confirmation.');
       } else {
         const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
         if (signInErr) throw signInErr;
@@ -109,24 +121,40 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen bg-[#0f0f0f] text-white flex flex-col">
       <header className="border-b border-neutral-800 px-6 py-4">
-        <div className="mx-auto flex max-w-4xl items-center">
+        <div className="mx-auto flex max-w-4xl items-center justify-between">
           <button type="button" onClick={() => router.push('/')} className="flex items-center gap-2">
             <span className="text-sm font-bold tracking-widest text-[#C9A84C] uppercase">VinCity</span>
             <span className="text-neutral-600">/</span>
             <span className="text-sm text-neutral-400">Grant Intelligence</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/')}
+            className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+          >
+            Continue without account →
           </button>
         </div>
       </header>
 
       <main className="flex flex-1 items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
-          <h1 className="mb-2 text-2xl font-semibold text-white">
+          <h1 className="mb-1 text-2xl font-semibold text-white">
             {mode === 'login' ? 'Sign in' : 'Create account'}
           </h1>
           <p className="mb-8 text-sm text-neutral-500">
             {mode === 'login'
-              ? 'Access your saved grant applications.'
-              : 'Save and resume your grant applications from any device.'}
+              ? 'Access your saved applications from any device.'
+              : 'Save and resume applications from any device. Or '}
+            {mode === 'signup' && (
+              <button
+                type="button"
+                onClick={() => router.push('/')}
+                className="text-[#C9A84C] hover:underline"
+              >
+                continue without an account.
+              </button>
+            )}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -186,12 +214,8 @@ export default function AuthPage() {
               className="w-full rounded-lg bg-[#C9A84C] py-2.5 text-sm font-semibold text-black transition-colors hover:bg-[#b8963f] disabled:opacity-60"
             >
               {loading
-                ? mode === 'login'
-                  ? 'Signing in…'
-                  : 'Creating account…'
-                : mode === 'login'
-                  ? 'Sign in'
-                  : 'Create account'}
+                ? mode === 'login' ? 'Signing in…' : 'Creating account…'
+                : mode === 'login' ? 'Sign in' : 'Create account'}
             </button>
 
             {awaitingEmailConfirm && mode === 'signup' && (
@@ -199,7 +223,7 @@ export default function AuthPage() {
                 type="button"
                 disabled={resendLoading || !email}
                 onClick={handleResend}
-                className="w-full rounded-lg border border-neutral-600 py-2.5 text-sm font-medium text-neutral-200 hover:bg-neutral-800 disabled:opacity-50"
+                className="w-full rounded-lg border border-neutral-700 py-2.5 text-sm font-medium text-neutral-300 hover:bg-neutral-800 disabled:opacity-50 transition-colors"
               >
                 {resendLoading ? 'Sending…' : 'Resend confirmation email'}
               </button>
@@ -210,12 +234,7 @@ export default function AuthPage() {
             {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
             <button
               type="button"
-              onClick={() => {
-                setMode(mode === 'login' ? 'signup' : 'login');
-                setError('');
-                setSuccess('');
-                setAwaitingEmailConfirm(false);
-              }}
+              onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setSuccess(''); setAwaitingEmailConfirm(false); }}
               className="text-[#C9A84C] hover:underline"
             >
               {mode === 'login' ? 'Sign up' : 'Sign in'}
