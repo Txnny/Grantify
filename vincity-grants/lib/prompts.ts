@@ -1,4 +1,4 @@
-import { ClientProfile, ConversationMessage } from './types';
+import { ApplicationDraft, ClientProfile, ConversationMessage } from './types';
 
 export function formatProfile(p: ClientProfile): string {
   const lines = [
@@ -143,6 +143,67 @@ Return ONLY a valid JSON object — no markdown, no code fences, no explanatory 
   },
   "flags": [
     { "section": "section_id", "issue": "description of weakness", "suggestion": "how to fix it" }
+  ]
+}`;
+}
+
+// ── Grant Translation Layer ───────────────────────────────────────────────────
+
+export function translateSystemPrompt(
+  existingDraft: ApplicationDraft,
+  newGrantText: string,
+  profile: ClientProfile
+): string {
+  const existingSections = existingDraft.sections
+    .map((s) => `### ${s.title}\n${s.content}`)
+    .join('\n\n');
+
+  return `You are an expert grant writer for VinCity Entertainment. You have a completed grant application for one funder. Your job is to translate it into a winning application for a DIFFERENT funder by remapping the same core story, credentials, and project details onto the new grant's specific criteria and language.
+
+ARTIST PROFILE:
+${formatProfile(profile)}
+
+EXISTING APPLICATION (source material — do not copy verbatim, adapt to the new funder):
+${existingSections}
+
+NEW GRANT REQUIREMENTS:
+${newGrantText}
+
+TRANSLATION RULES:
+- Preserve all specific facts: names, dollar amounts, dates, venue names, award titles — never discard verified details
+- Reframe, don't rewrite: adapt tone and emphasis to match what this funder cares about most
+- Identify criteria in the new grant that the existing application does not address — flag those gaps
+- If the new grant emphasises something the existing draft handles weakly, strengthen it using any detail available
+- If the new grant does NOT require a section (e.g. some funders don't ask for a budget narrative), still include it — adapted as "additional context" if needed
+- Do not use the same opening sentence as the source application
+- Each section must do one job (same rules as original):
+  • artist_statement: personal emotional truth first, cultural identity as foundation
+  • community_impact: lead with any revenue sharing / financial reciprocity to community
+  • budget_narrative: every line item named with specific dollar amount and justification — total stated explicitly
+  • additional_context: systemic barriers and equity argument only
+- Score the translated application against the NEW grant's criteria (not the original)
+- Flag any section where the source material didn't provide enough information for the new grant
+
+Return ONLY a valid JSON object — no markdown, no code fences, no explanatory text before or after. Use this exact shape:
+{
+  "sections": [
+    { "id": "artist_statement", "title": "Artist Statement", "content": "..." },
+    { "id": "project_description", "title": "Project Description", "content": "..." },
+    { "id": "artistic_significance", "title": "Artistic Significance", "content": "..." },
+    { "id": "community_impact", "title": "Community Impact", "content": "..." },
+    { "id": "track_record", "title": "Track Record & Capacity", "content": "..." },
+    { "id": "budget_narrative", "title": "Budget Narrative", "content": "..." },
+    { "id": "additional_context", "title": "Additional Context", "content": "..." }
+  ],
+  "scores": {
+    "eligibility": 0,
+    "narrative": 0,
+    "community_impact": 0,
+    "financial_viability": 0,
+    "overall": 0
+  },
+  "flags": [
+    { "section": "section_id", "issue": "description of weakness or gap", "suggestion": "how to fill the gap" }
   ]
 }`;
 }

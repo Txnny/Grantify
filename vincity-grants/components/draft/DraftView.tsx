@@ -5,6 +5,7 @@ import { ApplicationDraft, ClientProfile, ConversationMessage } from '@/lib/type
 import { parseDraftJson } from '@/lib/parseDraftResponse';
 import ApplicationPreview from './ApplicationPreview';
 import StrengthScore from './StrengthScore';
+import TranslatePanel from './TranslatePanel';
 
 interface Props {
   grantText: string;
@@ -27,6 +28,7 @@ export default function DraftView({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTranslate, setShowTranslate] = useState(false);
   const generated = useRef(false);
 
   useEffect(() => {
@@ -217,27 +219,45 @@ export default function DraftView({
   if (!draft) return null;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white">Application Draft</h1>
-        <button
-          onClick={onBack}
-          className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
-        >
-          ← Back to Interview
-        </button>
+    <>
+      {showTranslate && (
+        <TranslatePanel
+          existingDraft={draft}
+          clientProfile={clientProfile}
+          onClose={() => setShowTranslate(false)}
+        />
+      )}
+
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold text-white">Application Draft</h1>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowTranslate(true)}
+              className="rounded-md border border-[#C9A84C]/40 px-3 py-1.5 text-xs font-medium text-[#C9A84C] hover:border-[#C9A84C] hover:bg-[#C9A84C]/10 transition-colors"
+            >
+              Translate to New Grant →
+            </button>
+            <button
+              onClick={onBack}
+              className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
+            >
+              ← Back to Interview
+            </button>
+          </div>
+        </div>
+
+        <StrengthScore scores={draft.scores} flags={draft.flags} />
+
+        <ApplicationPreview
+          draft={draft}
+          clientName={clientProfile.artistName}
+          grantName={clientProfile.grantName}
+          onDraftChange={handleDraftChange}
+          onExport={handleExport}
+          isExporting={isExporting}
+        />
       </div>
-
-      <StrengthScore scores={draft.scores} flags={draft.flags} />
-
-      <ApplicationPreview
-        draft={draft}
-        clientName={clientProfile.artistName}
-        grantName={clientProfile.grantName}
-        onDraftChange={handleDraftChange}
-        onExport={handleExport}
-        isExporting={isExporting}
-      />
-    </div>
+    </>
   );
 }
